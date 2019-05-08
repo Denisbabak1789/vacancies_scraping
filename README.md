@@ -1,4 +1,4 @@
-# Vacancies scrupping
+# Vacancies scraping
 
 This is a script to scrape information about vacancies (as an example I've used work ua with key words "data science"). The result is saved as a csv file.
 
