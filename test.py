@@ -49,12 +49,16 @@ class ModelUpdater(SyncerTaskRunner):
             if model_new_version['name'] != model_current_version['name']:
                 self.logger.info("log_type = event, component = ml_model_processing, event_type = update_model, "
                                  "message = 'Model should has been downloaded and applied in core', "
-                                 "model_name = {}, severity = high",
-                                 model_new_version['name'])
+                                 "model_new_version = {}, model_current_version = {}, severity = high",
+                                 model_new_version['name'], model_current_version['name'])
                 if model_new_version['name'] == 'default':
                     status_updater = ModelFile.update({ModelFile.active_status: False})
                     status_updater.execute()
                     self._update_current_model_version(model_new_version['id'])
+                    self.logger.info("log_type = event, component = ml_model_processing, event_type = update_model, "
+                                 "message = 'Core will be restarted to apply the default version', "
+                                 "model_new_version = {}, model_current_version = {}, severity = high",
+                                 model_new_version['name'], model_current_version['name'])
                     subprocess.Popen(['bash', './kill_all.sh'])  # restart
 
                 else:
@@ -155,6 +159,13 @@ class ModelUpdater(SyncerTaskRunner):
                 transaction.rollback()
             else:
                 self._update_current_model_version()
+                box = Module.get()
+                model_current_version = box.model_current_version
+                model_new_version = box.model_new_version
+                self.logger.info("log_type = event, component = ml_model_processing, event_type = update_model, "
+                                 "message = 'Core will be restarted to apply a new model version', "
+                                 "model_new_version = {}, model_current_version = {}, severity = high",
+                                 model_new_version['name'], model_current_version['name'])
                 subprocess.Popen(['bash', './kill_all.sh'])  # restart
 
     def check_file_existance(self, file_path):
@@ -198,4 +209,5 @@ class ModelUpdater(SyncerTaskRunner):
 
 
 if __name__ == '__main__':
+    ModelUpdater()._update_current_model_version()
     ModelUpdater().run_tasks()
