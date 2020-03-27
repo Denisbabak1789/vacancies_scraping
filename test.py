@@ -161,11 +161,10 @@ class ModelUpdater(SyncerTaskRunner):
                 self._update_current_model_version()
                 box = Module.get()
                 model_current_version = box.model_current_version
-                model_new_version = box.model_new_version
                 self.logger.info("log_type = event, component = ml_model_processing, event_type = update_model, "
                                  "message = 'Core will be restarted to apply a new model version', "
-                                 "model_new_version = {}, model_current_version = {}, severity = high",
-                                 model_new_version['name'], model_current_version['name'])
+                                 model_current_version = {}, severity = high",
+                                 model_current_version['name'])
                 subprocess.Popen(['bash', './kill_all.sh'])  # restart
 
     def check_file_existance(self, file_path):
