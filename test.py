@@ -38,7 +38,7 @@ class ModelUpdater(SyncerTaskRunner):
 
     def _send_current_version(self, current_model_id, box_id):
         return self._sync_syncer._post("/api/v1/models/update_version",
-                                       data={"model_version_id": current_model_id, "box_id": box_id})
+                                       data={"model_version_id": current_model_id, "box_id": box_id, "is_applied": True})
 
     @periodic_task(settings.UPDATE_MODEL_INTERVAL, 'Exception in model updating loop')
     async def model_updater_loop(self):
@@ -55,6 +55,10 @@ class ModelUpdater(SyncerTaskRunner):
                     status_updater = ModelFile.update({ModelFile.active_status: False})
                     status_updater.execute()
                     self._update_current_model_version(model_new_version['id'])
+                    update_new_model_version_field = Module.update({Module.model_new_version_json: "null" })
+                    update_new_model_version_field.execute()
+                    update_current_model_version_field = Module.update({Module.model_current_version_json: json.dumps(model_new_version) })
+                    update_current_model_version_field.execute()
                     self.logger.info("log_type = event, component = ml_model_processing, event_type = update_model, "
                                  "message = 'Core will be restarted to apply the default version', "
                                  "model_new_version = {}, model_current_version = {}, severity = high",
@@ -161,10 +165,18 @@ class ModelUpdater(SyncerTaskRunner):
                 self._update_current_model_version()
                 box = Module.get()
                 model_current_version = box.model_current_version
+                update_new_model_version_field = Module.update({Module.model_new_version_json: "null" })
+                update_new_model_version_field.execute()
+                current_model = ModelFile.select(ModelFile.model_id).where(ModelFile.active_status == True)
+                current_model_id = current_model[0].model_id
+                current_model = ModelFile.select(ModelFile.model_name).where(ModelFile.active_status == True)
+                current_model_name = current_model[0].model_name
+                update_current_model_version_field = Module.update({Module.model_current_version_json: json.dumps({"id": current_model_id, "name": current_model_name}) })
+                update_current_model_version_field.execute()
                 self.logger.info("log_type = event, component = ml_model_processing, event_type = update_model, "
-                                 "message = 'Core will be restarted to apply a new model version', "
-                                 model_current_version = {}, severity = high",
-                                 model_current_version['name'])
+                                 "message = 'Core will be restarted to apply a new model version', " 
+                                 "model_new_version = {}, model_current_version = {}, severity = high",
+                                 current_model_name, model_current_version['name'])
                 subprocess.Popen(['bash', './kill_all.sh'])  # restart
 
     def check_file_existance(self, file_path):
@@ -208,5 +220,4 @@ class ModelUpdater(SyncerTaskRunner):
 
 
 if __name__ == '__main__':
-    ModelUpdater()._update_current_model_version()
     ModelUpdater().run_tasks()
